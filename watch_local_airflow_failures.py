@@ -792,6 +792,7 @@ def seed_seen_keys(
     password: str,
     limit: int,
     watched_dag_ids: set[str],
+    watcher_start_time: datetime,
 ) -> tuple[set[DagRunKey], set[TaskStateKey], set[DagRunKey], set[DagRunKey]]:
     dag_failures: set[DagRunKey] = set()
     task_states: set[TaskStateKey] = set()
@@ -822,9 +823,26 @@ def seed_seen_keys(
                     end_date=task_instance.get("end_date"),
                 )
             )
-        # Note: successful runs are intentionally NOT seeded so that a manual
-        # run that completes right as Dagsy starts still triggers a popup.
-        # Seeding is only needed to suppress pre-existing failures on startup.
+        # Seed successful runs that completed BEFORE the watcher started so
+        # they don't trigger popups. Runs that completed after watcher_start_time
+        # are left unseeded so they do trigger a popup.
+        if should_notify_success(dag_run, dag_key in runs_with_task_alerts):
+            end_date_str = dag_run.get("end_date")
+            if end_date_str:
+                try:
+                    end_dt = datetime.fromisoformat(end_date_str.replace("Z", "+00:00"))
+                    if end_dt.tzinfo is None:
+                        end_dt = end_dt.replace(tzinfo=timezone.utc)
+                    if end_dt < watcher_start_time:
+                        successful_manual_runs.add(
+                            SuccessfulRunKey(
+                                dag_id=dag_id,
+                                run_id=run_id,
+                                end_date=end_date_str,
+                            )
+                        )
+                except ValueError:
+                    pass
     return dag_failures, task_states, runs_with_task_alerts, successful_manual_runs
 
 
@@ -876,6 +894,7 @@ def main() -> int:
     if args.drain_dialog_queue:
         return drain_dialog_queue()
 
+    watcher_start_time = datetime.now(tz=timezone.utc)
     watched_dag_ids = set(args.dag_id)
     if not watched_dag_ids:
         watched_dag_ids = load_inferred_dag_ids()
@@ -911,6 +930,7 @@ def main() -> int:
                     password=args.password,
                     limit=args.limit,
                     watched_dag_ids=watched_dag_ids,
+                    watcher_start_time=watcher_start_time,
                 )
                 print(
                     "Seeded "
