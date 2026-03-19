@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+__MACOSX/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Built app
+*.app/
+
+# Runtime state (local only)
+~/Library/Application\ Support/local-airflow-watcher/
