@@ -30,20 +30,9 @@ struct Arguments {
     }
 }
 
-final class PopupWindow: NSWindow {
-    var onCmdQ: (() -> Void)?
-    override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "q" {
-            onCmdQ?()
-            return true
-        }
-        return super.performKeyEquivalent(with: event)
-    }
-}
-
 final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let args: Arguments
-    private var window: PopupWindow!
+    private var window: NSWindow!
     private var result = "Dismiss"
 
     init(args: Arguments) {
@@ -52,8 +41,19 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildWindow()
+        buildMenu()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    private func buildMenu() {
+        let appMenu = NSMenu()
+        appMenu.addItem(NSMenuItem(title: "Quit", action: #selector(dismissAction), keyEquivalent: "q"))
+        let appMenuItem = NSMenuItem()
+        appMenuItem.submenu = appMenu
+        let mainMenu = NSMenu()
+        mainMenu.addItem(appMenuItem)
+        NSApp.mainMenu = mainMenu
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -110,13 +110,12 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func buildWindow() {
         let theme = theme()
         let rect = NSRect(x: 0, y: 0, width: 640, height: 320)
-        window = PopupWindow(
+        window = NSWindow(
             contentRect: rect,
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        window.onCmdQ = { [weak self] in self?.dismissAction() }
         window.title = theme.subtitle
         window.isReleasedWhenClosed = false
         window.level = .floating
