@@ -186,6 +186,6 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 let args = Arguments.parse()
 let app = NSApplication.shared
 let delegate = PopupController(args: args)
-app.setActivationPolicy(.accessory)
+app.setActivationPolicy(.regular)
 app.delegate = delegate
 app.run()
