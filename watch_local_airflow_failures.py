@@ -20,7 +20,7 @@ from typing import Any
 ACCESS_TOKEN: str | None = None
 MAX_SUCCESS_ITEMS = 10
 SYSTEM_PYTHON = "/usr/bin/python3"
-NATIVE_DIALOG_HELPER = "/Users/liorbar/Applications/airflow-dialog-helper"
+NATIVE_DIALOG_HELPER = os.path.expanduser("~/Applications/airflow-dialog-helper")
 DIALOG_QUEUE_DIR = os.path.expanduser("~/Library/Application Support/local-airflow-watcher/dialog_queue")
 DIALOG_RUNTIME_PATH = os.path.expanduser(
     "~/Library/Application Support/local-airflow-watcher/dialog_queue_runtime.json"
@@ -545,7 +545,7 @@ class SuccessPanelManager:
     def __init__(self, environment_label: str, popup_mode: str) -> None:
         self.environment_label = environment_label
         self.popup_mode = popup_mode
-        self.helper_path = "/Users/liorbar/Applications/airflow-success-panel"
+        self.helper_path = os.path.expanduser("~/Applications/airflow-success-panel")
         self.state_dir = os.path.expanduser("~/Library/Application Support/local-airflow-watcher")
         self.state_path = os.path.join(self.state_dir, "success_panel_state.json")
         self.runtime_path = SUCCESS_PANEL_RUNTIME_PATH
@@ -687,7 +687,7 @@ class FailurePanelManager:
     def __init__(self, environment_label: str, popup_mode: str) -> None:
         self.environment_label = environment_label
         self.popup_mode = popup_mode
-        self.helper_path = "/Users/liorbar/Applications/airflow-failure-alert"
+        self.helper_path = os.path.expanduser("~/Applications/airflow-failure-alert")
         self.state_dir = os.path.expanduser("~/Library/Application Support/local-airflow-watcher")
         self.state_path = os.path.join(self.state_dir, "failure_panel_state.json")
         self.runtime_path = FAILURE_PANEL_RUNTIME_PATH

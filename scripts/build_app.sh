@@ -25,12 +25,14 @@ DEST="${DEST:-$HOME/Applications/Dagsy.app}"
 CONTROLLER_BIN="${CONTROLLER_BIN:-$REPO_ROOT/bin/airflow-dag-listener-controller}"
 FAILURE_PANEL="${FAILURE_PANEL:-$REPO_ROOT/bin/airflow-failure-alert}"
 SUCCESS_PANEL="${SUCCESS_PANEL:-$REPO_ROOT/bin/airflow-success-panel}"
+DIALOG_HELPER="${DIALOG_HELPER:-$REPO_ROOT/bin/airflow-dialog-helper}"
+DAG_LISTENER="${DAG_LISTENER:-$REPO_ROOT/bin/airflow-dag-listener}"
 # ──────────────────────────────────────────────────────────────────────────────
 
 echo "Building Dagsy.app → $DEST"
 
 # Validate required binaries
-for bin_path in "$CONTROLLER_BIN" "$FAILURE_PANEL" "$SUCCESS_PANEL"; do
+for bin_path in "$CONTROLLER_BIN" "$FAILURE_PANEL" "$SUCCESS_PANEL" "$DIALOG_HELPER" "$DAG_LISTENER"; do
   if [[ ! -f "$bin_path" ]]; then
     echo "ERROR: Required binary not found: $bin_path"
     exit 1
@@ -57,16 +59,23 @@ cp "$CONTROLLER_BIN" "$MACOS_DIR/airflow-dag-listener-controller"
 chmod +x "$MACOS_DIR/airflow-dag-listener-controller"
 cp "$REPO_ROOT/watch_local_airflow_failures.py" "$MACOS_DIR/watch_local_airflow_failures.py"
 
-# Helper panel binaries — placed next to the .app
+# Helper binaries — placed next to the .app
 HELPERS_DIR="$(dirname "$DEST")"
-cp "$FAILURE_PANEL"  "$HELPERS_DIR/airflow-failure-alert"
-cp "$SUCCESS_PANEL"  "$HELPERS_DIR/airflow-success-panel"
-chmod +x "$HELPERS_DIR/airflow-failure-alert" "$HELPERS_DIR/airflow-success-panel"
+cp "$FAILURE_PANEL"   "$HELPERS_DIR/airflow-failure-alert"
+cp "$SUCCESS_PANEL"   "$HELPERS_DIR/airflow-success-panel"
+cp "$DIALOG_HELPER"   "$HELPERS_DIR/airflow-dialog-helper"
+cp "$DAG_LISTENER"    "$HELPERS_DIR/airflow-dag-listener"
+chmod +x "$HELPERS_DIR/airflow-failure-alert" \
+         "$HELPERS_DIR/airflow-success-panel" \
+         "$HELPERS_DIR/airflow-dialog-helper" \
+         "$HELPERS_DIR/airflow-dag-listener"
 
 echo ""
 echo "✓ Dagsy.app built at: $DEST"
 echo "  Helper binaries:    $HELPERS_DIR/airflow-failure-alert"
 echo "                      $HELPERS_DIR/airflow-success-panel"
+echo "                      $HELPERS_DIR/airflow-dialog-helper"
+echo "                      $HELPERS_DIR/airflow-dag-listener"
 echo ""
 echo "Double-click $DEST to launch, or drag it to /Applications."
 echo ""
