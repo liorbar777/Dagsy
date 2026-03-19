@@ -32,12 +32,12 @@ struct Arguments {
 
 final class PopupWindow: NSWindow {
     var onCmdQ: (() -> Void)?
-    override func keyDown(with event: NSEvent) {
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "q" {
             onCmdQ?()
-        } else {
-            super.keyDown(with: event)
+            return true
         }
+        return super.performKeyEquivalent(with: event)
     }
 }
 
