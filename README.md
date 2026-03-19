@@ -1,5 +1,7 @@
 # Dagsy — Local Airflow DAG Watcher
 
+> **macOS only** — Windows and Linux support is not available yet.
+
 Dagsy is a lightweight macOS application that monitors a locally running Apache Airflow instance and instantly notifies you about DAG and task failures, retries, and successful manual runs — without keeping the Airflow UI open.
 
 ---
