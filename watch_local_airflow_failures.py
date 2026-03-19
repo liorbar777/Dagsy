@@ -822,14 +822,9 @@ def seed_seen_keys(
                     end_date=task_instance.get("end_date"),
                 )
             )
-        if should_notify_success(dag_run, dag_key in runs_with_task_alerts):
-            successful_manual_runs.add(
-                SuccessfulRunKey(
-                    dag_id=dag_id,
-                    run_id=run_id,
-                    end_date=dag_run.get("end_date"),
-                )
-            )
+        # Note: successful runs are intentionally NOT seeded so that a manual
+        # run that completes right as Dagsy starts still triggers a popup.
+        # Seeding is only needed to suppress pre-existing failures on startup.
     return dag_failures, task_states, runs_with_task_alerts, successful_manual_runs
 
 
