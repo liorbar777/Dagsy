@@ -8,7 +8,7 @@
 @property (nonatomic, strong) NSButton *startButton;
 @property (nonatomic, strong) NSButton *stopButton;
 @property (nonatomic, strong) NSView *cardView;
-@property (nonatomic, assign) BOOL recenteringWindow;
+@property (nonatomic, strong) NSProgressIndicator *spinner;
 @property (nonatomic, copy) NSString *serviceName;
 @property (nonatomic, copy) NSString *plistPath;
 @end
@@ -26,12 +26,29 @@
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
     [self buildWindow];
+    [self buildMenu];
     [self refreshStatus:nil];
     [NSApp activateIgnoringOtherApps:YES];
     [self.window makeKeyAndOrderFront:nil];
 }
 
+- (void)buildMenu {
+    NSMenu *appMenu = [[NSMenu alloc] init];
+    [appMenu addItemWithTitle:@"Quit" action:@selector(terminate:) keyEquivalent:@"q"];
+    NSMenuItem *appMenuItem = [[NSMenuItem alloc] init];
+    appMenuItem.submenu = appMenu;
+    NSMenu *mainMenu = [[NSMenu alloc] init];
+    [mainMenu addItem:appMenuItem];
+    NSApp.mainMenu = mainMenu;
+}
+
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)sender {
+    return YES;
+}
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)sender hasVisibleWindows:(BOOL)flag {
+    [self.window makeKeyAndOrderFront:nil];
+    [NSApp activateIgnoringOtherApps:YES];
     return YES;
 }
 
@@ -58,33 +75,9 @@
     return button;
 }
 
-- (void)centerWindowAnimated {
-    NSScreen *screen = self.window.screen ?: [NSScreen mainScreen];
-    if (screen == nil) {
-        return;
-    }
-    NSRect visible = screen.visibleFrame;
-    NSRect frame = self.window.frame;
-    NSPoint origin = NSMakePoint(
-        visible.origin.x + floor((visible.size.width - frame.size.width) / 2.0),
-        visible.origin.y + floor((visible.size.height - frame.size.height) / 2.0)
-    );
-    self.recenteringWindow = YES;
-    [self.window setFrameOrigin:origin];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        self.recenteringWindow = NO;
-    });
-}
-
-- (void)windowDidMove:(NSNotification *)notification {
-    if (self.recenteringWindow) {
-        return;
-    }
-    [self centerWindowAnimated];
-}
 
 - (void)buildWindow {
-    NSRect rect = NSMakeRect(0, 0, 640, 420);
+    NSRect rect = NSMakeRect(0, 0, 640, 360);
     self.window = [[NSWindow alloc] initWithContentRect:rect
                                               styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable)
                                                 backing:NSBackingStoreBuffered
@@ -93,8 +86,8 @@
     self.window.releasedWhenClosed = NO;
     self.window.delegate = self;
     [self.window standardWindowButton:NSWindowZoomButton].hidden = YES;
-    self.window.minSize = NSMakeSize(640, 420);
-    self.window.maxSize = NSMakeSize(640, 420);
+    self.window.minSize = NSMakeSize(640, 360);
+    self.window.maxSize = NSMakeSize(640, 360);
     [self.window center];
 
     NSView *content = [[NSView alloc] initWithFrame:rect];
@@ -114,7 +107,7 @@
     glowB.layer.cornerRadius = 28.0;
     [content addSubview:glowB];
 
-    self.cardView = [[NSView alloc] initWithFrame:NSMakeRect(18, 18, 604, 384)];
+    self.cardView = [[NSView alloc] initWithFrame:NSMakeRect(18, 18, 604, 324)];
     self.cardView.wantsLayer = YES;
     self.cardView.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.94 green:0.97 blue:1.0 alpha:0.96].CGColor;
     self.cardView.layer.borderColor = [NSColor colorWithCalibratedRed:0.55 green:0.72 blue:0.96 alpha:1.0].CGColor;
@@ -122,12 +115,12 @@
     self.cardView.layer.cornerRadius = 26.0;
     [content addSubview:self.cardView];
 
-    NSView *accent = [[NSView alloc] initWithFrame:NSMakeRect(0, 376, 604, 8)];
+    NSView *accent = [[NSView alloc] initWithFrame:NSMakeRect(0, 316, 604, 8)];
     accent.wantsLayer = YES;
     accent.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.05 green:0.36 blue:0.95 alpha:1.0].CGColor;
     [self.cardView addSubview:accent];
 
-    NSView *orb = [[NSView alloc] initWithFrame:NSMakeRect(442, 236, 118, 118)];
+    NSView *orb = [[NSView alloc] initWithFrame:NSMakeRect(442, 176, 118, 118)];
     orb.wantsLayer = YES;
     orb.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.09 green:0.60 blue:0.95 alpha:0.16].CGColor;
     orb.layer.cornerRadius = 59.0;
@@ -135,29 +128,24 @@
     orb.layer.borderWidth = 1.0;
     [self.cardView addSubview:orb];
 
-    NSView *orbCore = [[NSView alloc] initWithFrame:NSMakeRect(472, 266, 58, 58)];
+    NSView *orbCore = [[NSView alloc] initWithFrame:NSMakeRect(472, 206, 58, 58)];
     orbCore.wantsLayer = YES;
     orbCore.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.14 green:0.82 blue:0.55 alpha:0.85].CGColor;
     orbCore.layer.cornerRadius = 29.0;
     [self.cardView addSubview:orbCore];
 
-    NSTextField *title = [self labelWithFrame:NSMakeRect(28, 304, 360, 40)
+    NSTextField *title = [self labelWithFrame:NSMakeRect(28, 244, 360, 40)
                                          text:@"Dagsy"
                                          font:[NSFont boldSystemFontOfSize:34]
                                         color:[NSColor colorWithCalibratedRed:0.06 green:0.10 blue:0.18 alpha:1.0]];
     [self.cardView addSubview:title];
 
-    NSTextField *subtitle = [self labelWithFrame:NSMakeRect(30, 278, 320, 20)
+    NSTextField *subtitle = [self labelWithFrame:NSMakeRect(30, 218, 320, 20)
                                             text:@"Your DAG watcher for local Airflow"
                                             font:[NSFont systemFontOfSize:13 weight:NSFontWeightSemibold]
                                            color:[NSColor colorWithCalibratedRed:0.20 green:0.31 blue:0.49 alpha:1.0]];
     [self.cardView addSubview:subtitle];
 
-    NSTextField *blurb = [self labelWithFrame:NSMakeRect(30, 204, 390, 64)
-                                         text:@"One calm control panel for noisy DAGs. Start the watcher, let failures and recoveries surface, then get out of the way."
-                                         font:[NSFont systemFontOfSize:14]
-                                        color:[NSColor colorWithCalibratedWhite:0.26 alpha:1.0]];
-    [self.cardView addSubview:blurb];
 
     self.statusLabel = [self labelWithFrame:NSMakeRect(30, 150, 420, 28)
                                         text:@"Checking listener status..."
@@ -171,14 +159,14 @@
                                        color:[NSColor colorWithCalibratedWhite:0.34 alpha:1.0]];
     [self.cardView addSubview:self.detailLabel];
 
-    self.startButton = [self makeButtonWithTitle:@"Start Listener" action:@selector(startListener:) frame:NSMakeRect(30, 28, 140, 36)];
+    self.startButton = [self makeButtonWithTitle:@"Start Watcher" action:@selector(startListener:) frame:NSMakeRect(30, 28, 140, 36)];
     self.startButton.wantsLayer = YES;
     self.startButton.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.12 green:0.60 blue:0.33 alpha:1.0].CGColor;
     self.startButton.layer.cornerRadius = 10.0;
     self.startButton.contentTintColor = [NSColor whiteColor];
     [self.cardView addSubview:self.startButton];
 
-    self.stopButton = [self makeButtonWithTitle:@"Stop Listener" action:@selector(stopListener:) frame:NSMakeRect(184, 28, 136, 36)];
+    self.stopButton = [self makeButtonWithTitle:@"Stop Watcher" action:@selector(stopListener:) frame:NSMakeRect(184, 28, 136, 36)];
     self.stopButton.wantsLayer = YES;
     self.stopButton.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.78 green:0.25 blue:0.18 alpha:1.0].CGColor;
     self.stopButton.layer.cornerRadius = 10.0;
@@ -187,6 +175,12 @@
 
     NSButton *quitButton = [self makeButtonWithTitle:@"Close" action:@selector(closeWindow:) frame:NSMakeRect(490, 28, 84, 36)];
     [self.cardView addSubview:quitButton];
+
+    self.spinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(338, 32, 24, 24)];
+    self.spinner.style = NSProgressIndicatorStyleSpinning;
+    self.spinner.hidden = YES;
+    [self.spinner setControlSize:NSControlSizeSmall];
+    [self.cardView addSubview:self.spinner];
 }
 
 - (NSString *)runShell:(NSString *)command status:(int *)status {
@@ -226,33 +220,57 @@
 }
 
 - (void)refreshStatus:(id)sender {
-    BOOL running = [self isRunning];
-    self.statusLabel.stringValue = running ? @"Local watcher online" : @"Local watcher offline";
-    self.detailLabel.stringValue = running
-        ? @"Dagsy is watching local Airflow and ready to surface failures, recoveries, and manual-run completions."
-        : @"The local watcher is stopped. Start it to bring Dagsy notifications back online.";
-    self.startButton.enabled = !running;
-    self.stopButton.enabled = running;
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        BOOL running = [self isRunning];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.statusLabel.stringValue = running ? @"Local watcher online" : @"Local watcher offline";
+            self.detailLabel.stringValue = running
+                ? @"Dagsy is watching local Airflow and ready to surface failures, recoveries, and manual-run completions."
+                : @"The local watcher is stopped. Start it to bring Dagsy notifications back online.";
+            self.startButton.enabled = !running;
+            self.stopButton.enabled = running;
+        });
+    });
 }
 
 - (void)startListener:(id)sender {
-    int status = 0;
+    self.startButton.enabled = NO;
+    self.stopButton.enabled = NO;
+    self.spinner.hidden = NO;
+    [self.spinner startAnimation:nil];
     NSString *command = [NSString stringWithFormat:@"launchctl bootstrap gui/%d %@ && launchctl kickstart -k gui/%d/%@", getuid(), self.plistPath, getuid(), self.serviceName];
-    NSString *result = [self runShell:command status:&status];
-    if (status != 0) {
-        self.detailLabel.stringValue = [NSString stringWithFormat:@"Start failed: %@", result];
-    }
-    [self refreshStatus:nil];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        int status = 0;
+        NSString *result = [self runShell:command status:&status];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.spinner stopAnimation:nil];
+            self.spinner.hidden = YES;
+            if (status != 0) {
+                self.detailLabel.stringValue = [NSString stringWithFormat:@"Start failed: %@", result];
+            }
+            [self refreshStatus:nil];
+        });
+    });
 }
 
 - (void)stopListener:(id)sender {
-    int status = 0;
+    self.startButton.enabled = NO;
+    self.stopButton.enabled = NO;
+    self.spinner.hidden = NO;
+    [self.spinner startAnimation:nil];
     NSString *command = [NSString stringWithFormat:@"launchctl bootout gui/%d %@", getuid(), self.plistPath];
-    NSString *result = [self runShell:command status:&status];
-    if (status != 0) {
-        self.detailLabel.stringValue = [NSString stringWithFormat:@"Stop failed: %@", result];
-    }
-    [self refreshStatus:nil];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        int status = 0;
+        NSString *result = [self runShell:command status:&status];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.spinner stopAnimation:nil];
+            self.spinner.hidden = YES;
+            if (status != 0) {
+                self.detailLabel.stringValue = [NSString stringWithFormat:@"Stop failed: %@", result];
+            }
+            [self refreshStatus:nil];
+        });
+    });
 }
 
 - (void)closeWindow:(id)sender {

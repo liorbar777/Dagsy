@@ -889,11 +889,34 @@ def build_success_message(dag_id: str, run_id: str, end_date: str) -> tuple[str,
     return title, message
 
 
+def clear_stale_ui_state() -> None:
+    """Delete leftover panel messages and queued dialogs from previous runs."""
+    for path in (SUCCESS_PANEL_STATE_PATH, FAILURE_PANEL_STATE_PATH):
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+    if os.path.isdir(DIALOG_QUEUE_DIR):
+        for name in os.listdir(DIALOG_QUEUE_DIR):
+            try:
+                os.remove(os.path.join(DIALOG_QUEUE_DIR, name))
+            except FileNotFoundError:
+                pass
+    for helper in ("airflow-success-panel", "airflow-failure-alert", "airflow-dialog-helper"):
+        subprocess.run(
+            ["pkill", "-f", os.path.expanduser(f"~/Applications/{helper}")],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+
+
 def main() -> int:
     args = parse_args()
     if args.drain_dialog_queue:
         return drain_dialog_queue()
 
+    clear_stale_ui_state()
     watcher_start_time = datetime.now(tz=timezone.utc)
     watched_dag_ids = set(args.dag_id)
     if not watched_dag_ids:
@@ -913,8 +936,9 @@ def main() -> int:
         seen_task_states,
         runs_with_task_alerts,
         seen_manual_successes,
-        seeded,
+        _,
     ) = load_watcher_state()
+    seeded = False
 
     while True:
         try:

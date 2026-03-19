@@ -43,7 +43,7 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildWindow()
         buildMenu()
         NSApp.activate(ignoringOtherApps: true)
-        window.makeKeyAndOrderFront(nil)
+        NSApp.runModal(for: window)
     }
 
     private func buildMenu() {
@@ -68,6 +68,7 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func dismissAction() {
         result = "Dismiss"
+        NSApp.stopModal()
         window.close()
     }
 

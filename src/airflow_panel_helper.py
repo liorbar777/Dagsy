@@ -46,7 +46,7 @@ class AirflowPanelApp:
         self.root.withdraw()
         self.root.configure(bg="#f8fafc")
         self.root.title(self.theme["title"])
-        self.root.resizable(True, True)
+        self.root.resizable(False, True)
         self.root.protocol("WM_DELETE_WINDOW", self.root.destroy)
         self.root.attributes("-topmost", True)
         self._last_signature: str | None = None
@@ -144,7 +144,7 @@ class AirflowPanelApp:
         self.root.update_idletasks()
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-        width = min(WINDOW_WIDTH, max(420, screen_width - 80))
+        width = WINDOW_WIDTH
         height = min(WINDOW_HEIGHT, max(360, screen_height - 160))
         x = max(24, screen_width - width - 32)
         y = 72

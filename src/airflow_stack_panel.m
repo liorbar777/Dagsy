@@ -28,13 +28,14 @@ static const CGFloat kScrollFooterHeight = 22.0;
 @property (nonatomic, copy) NSString *otherRuntimePath;
 @property (nonatomic, strong) NSWindow *window;
 @property (nonatomic, strong) NSScrollView *scrollView;
-@property (nonatomic, strong) NSStackView *stackView;
 @property (nonatomic, strong) NSTextField *titleLabel;
 @property (nonatomic, strong) NSTextField *subtitleLabel;
 @property (nonatomic, strong) NSTextField *countLabel;
 @property (nonatomic, strong) NSTimer *timer;
 @property (nonatomic, copy) NSString *lastSignature;
 @property (nonatomic, assign) BOOL applyingLayout;
+@property (nonatomic, assign) CGFloat userHeight;
+@property (nonatomic, assign) BOOL otherWasVisible;
 @property (nonatomic, strong) NSView *documentView;
 @property (nonatomic, strong) NSView *cardView;
 @property (nonatomic, strong) NSView *accentView;
@@ -98,6 +99,14 @@ static const CGFloat kScrollFooterHeight = 22.0;
         return;
     }
     [self writeRuntimeVisible:YES minimized:NO x:0 y:0];
+}
+
+- (void)windowDidResize:(NSNotification *)notification {
+    if (self.applyingLayout) {
+        return;
+    }
+    self.userHeight = self.window.frame.size.height;
+    [self layoutWindowContent];
 }
 
 - (void)windowWillClose:(NSNotification *)notification {
@@ -302,8 +311,8 @@ static const CGFloat kScrollFooterHeight = 22.0;
 
     NSDictionary *theme = [self theme];
     NSString *environmentLabel = [self environmentLabel];
-    self.titleLabel.stringValue = [NSString stringWithFormat:@"%@ [%@]", theme[@"title"], environmentLabel];
-    self.subtitleLabel.stringValue = [NSString stringWithFormat:@"Newest first. %@ Airflow panel.", [environmentLabel capitalizedString]];
+    self.titleLabel.stringValue = theme[@"title"];
+    self.subtitleLabel.stringValue = @"Newest first.";
     self.countLabel.stringValue = [NSString stringWithFormat:@"%lu item%@", (unsigned long)items.count, items.count == 1 ? @"" : @"s"];
 
     CGFloat contentWidth = self.scrollView.contentSize.width;
@@ -318,7 +327,7 @@ static const CGFloat kScrollFooterHeight = 22.0;
         y += kCardHeight + kCardGap;
     }
 
-    CGFloat height = [self desiredHeightForItemCount:items.count];
+    CGFloat height = self.userHeight > 0 ? self.userHeight : [self desiredHeightForItemCount:1];
     NSRect frame = self.window.frame;
     frame.size.height = height;
     frame.size.width = kPanelWidth;
@@ -349,13 +358,27 @@ static const CGFloat kScrollFooterHeight = 22.0;
         return;
     }
     NSRect visible = screen.visibleFrame;
-    NSDictionary *myRuntime = [self loadRuntime:self.runtimePath];
-    NSDictionary *otherRuntime = [self loadRuntime:self.otherRuntimePath];
     CGFloat width = self.window.frame.size.width;
     CGFloat height = self.window.frame.size.height;
     CGFloat x = visible.origin.x + visible.size.width - width - kRightMargin;
     CGFloat y = visible.origin.y + kBottomMargin;
-    BOOL otherVisible = [otherRuntime[@"visible"] boolValue] && [self hasVisibleItemsForStatePath:[self.panelKind isEqualToString:@"success"] ? [self.statePath stringByReplacingOccurrencesOfString:@"success_panel_state.json" withString:@"failure_panel_state.json"] : [self.statePath stringByReplacingOccurrencesOfString:@"failure_panel_state.json" withString:@"success_panel_state.json"]];
+    NSString *otherStatePath = [self.panelKind isEqualToString:@"success"]
+        ? [self.statePath stringByReplacingOccurrencesOfString:@"success_panel_state.json" withString:@"failure_panel_state.json"]
+        : [self.statePath stringByReplacingOccurrencesOfString:@"failure_panel_state.json" withString:@"success_panel_state.json"];
+    BOOL otherVisible = [self hasVisibleItemsForStatePath:otherStatePath];
+
+    if (otherVisible && !self.otherWasVisible) {
+        self.userHeight = 0;
+        CGFloat joinedHeight = [self desiredHeightForItemCount:1];
+        NSRect frame = self.window.frame;
+        frame.size.height = joinedHeight;
+        self.applyingLayout = YES;
+        [self.window setFrame:frame display:YES];
+        [self layoutWindowContent];
+        self.applyingLayout = NO;
+        height = joinedHeight;
+    }
+    self.otherWasVisible = otherVisible;
 
     if (otherVisible) {
         if ([self.panelKind isEqualToString:@"success"]) {
@@ -375,9 +398,11 @@ static const CGFloat kScrollFooterHeight = 22.0;
     if (items.count == 0) {
         [self writeRuntimeVisible:NO minimized:NO x:self.window.frame.origin.x y:self.window.frame.origin.y];
         [self.window orderOut:nil];
+        self.lastSignature = nil;
         return;
     }
 
+    BOOL isNew = self.lastSignature == nil;
     if (![signature isEqualToString:self.lastSignature]) {
         self.lastSignature = signature;
         [self rebuildUI:items];
@@ -385,7 +410,7 @@ static const CGFloat kScrollFooterHeight = 22.0;
         [self positionWindowForCurrentState];
     }
 
-    [NSApp activateIgnoringOtherApps:NO];
+    [NSApp activateIgnoringOtherApps:isNew];
     [self.window orderFront:nil];
 }
 
@@ -393,9 +418,11 @@ static const CGFloat kScrollFooterHeight = 22.0;
     NSDictionary *theme = [self theme];
     NSRect rect = NSMakeRect(0, 0, kPanelWidth, 340);
     self.window = [[NSWindow alloc] initWithContentRect:rect
-                                              styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
+                                              styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable)
                                                 backing:NSBackingStoreBuffered
                                                   defer:NO];
+    self.window.minSize = NSMakeSize(kPanelWidth, kPanelMinHeight);
+    self.window.maxSize = NSMakeSize(kPanelWidth, kPanelMaxHeight);
     self.window.title = theme[@"title"];
     self.window.level = NSFloatingWindowLevel;
     self.window.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces | NSWindowCollectionBehaviorFullScreenAuxiliary;
