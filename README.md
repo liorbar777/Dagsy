@@ -174,6 +174,10 @@ rm -rf ~/Library/Application\ Support/local-airflow-watcher/
 
 ---
 
+## Author
+
+Created by **Lior Bar** — Premium DE
+
 ## License
 
 MIT
