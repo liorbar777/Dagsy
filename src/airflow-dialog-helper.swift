@@ -30,9 +30,20 @@ struct Arguments {
     }
 }
 
+final class PopupWindow: NSWindow {
+    var onCmdQ: (() -> Void)?
+    override func keyDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "q" {
+            onCmdQ?()
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+}
+
 final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let args: Arguments
-    private var window: NSWindow!
+    private var window: PopupWindow!
     private var result = "Dismiss"
 
     init(args: Arguments) {
@@ -43,14 +54,6 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildWindow()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
-
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "q" {
-                self?.dismissAction()
-                return nil
-            }
-            return event
-        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -107,12 +110,13 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func buildWindow() {
         let theme = theme()
         let rect = NSRect(x: 0, y: 0, width: 640, height: 320)
-        window = NSWindow(
+        window = PopupWindow(
             contentRect: rect,
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
+        window.onCmdQ = { [weak self] in self?.dismissAction() }
         window.title = theme.subtitle
         window.isReleasedWhenClosed = false
         window.level = .floating
