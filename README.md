@@ -1,8 +1,34 @@
-# Dagsy — Local Airflow DAG Watcher
+<p align="center">
+  <img src="assets/icon.png" alt="Dagsy" width="120" />
+</p>
 
-> **macOS only** — Windows and Linux support is not available yet.
+<h1 align="center">Dagsy — Local Airflow DAG Watcher</h1>
 
-Dagsy is a lightweight macOS application that monitors a locally running Apache Airflow instance and instantly notifies you about DAG and task failures, retries, and successful manual runs — without keeping the Airflow UI open.
+<p align="center">
+  <strong>macOS compatible</strong>
+</p>
+
+<p align="center">
+  Your local Airflow co-pilot — alerts you the moment something fails or finishes, so you can actually get other things done.
+</p>
+
+---
+
+## Why Dagsy?
+
+You triggered the DAG. It's running. Now what — do you just... sit there and watch it? 🙃
+
+Local DAGs can take minutes or hours. Refreshing the Airflow UI every 30 seconds isn't a workflow, it's a punishment. **Dagsy fixes that.**
+
+Trigger your DAG, then go do literally anything else. Write code, answer Slack, grab a coffee ☕. The moment something fails, retries, or finishes — a native macOS popup taps you on the shoulder. No missed failures. No "wait, when did that break?"
+
+It's especially great for long backfills and multi-task pipelines where you need to stay in the loop without being glued to a browser tab.
+
+- **Instant popup dialogs** — macOS alerts you the second something needs attention
+- **Never miss a failure** — no more manually refreshing the Airflow UI
+- **Retries vs. failures** — know the difference before you start panicking
+- **Walk away while your DAG runs** — come back only when it matters
+- **Zero context-switching tax** — stay in flow, let Dagsy do the watching
 
 ---
 
@@ -31,14 +57,11 @@ open ~/Applications/Dagsy.app
 
 ---
 
-## Why Dagsy?
+## Screenshots
 
-When developing data pipelines locally with Astronomer or a plain Airflow stack, you're constantly context-switching between your editor, the terminal, and the Airflow UI. Dagsy removes the manual checking:
-
-- **Catch failures the moment they happen** — no more refreshing the Airflow UI
-- **Distinguish task retries from final failures** — so you don't panic prematurely
-- **Know when a manual run finishes** — especially useful for long-running backfills
-- **Stay in flow** — alerts surface as native macOS dialogs, not browser tabs
+| Main Panel | Failure Panel | Success Panel |
+|:---:|:---:|:---:|
+| ![Main Panel](assets/screenshots/main%20panel.png) | ![Failure Panel](assets/screenshots/failure%20panel.png) | ![Success Panel](assets/screenshots/success%20panel.png) |
 
 ---
 
@@ -113,18 +136,20 @@ You can run the watcher directly from the terminal without building the app:
 ```bash
 python3 watch_local_airflow_failures.py \
   --base-url http://localhost:8080 \
-  --username admin \
-  --password admin \
+  --username *** \
+  --password *** \
   --poll-interval 5
 ```
+
+> **Note:** Replace `***` with your Airflow username and password. The default credentials for a local Airflow instance are typically `admin` / `admin`.
 
 ### CLI options
 
 | Flag | Default | Description |
 |---|---|---|
 | `--base-url` | `http://localhost:8080` | Airflow base URL |
-| `--username` | `admin` | Airflow username |
-| `--password` | `admin` | Airflow password |
+| `--username` | `***` | Airflow username (default: `admin`) |
+| `--password` | `***` | Airflow password (default: `admin`) |
 | `--poll-interval` | `5` | Seconds between polls |
 | `--limit` | `20` | Max recent DAG runs to inspect per DAG |
 | `--dag-id` | _(all DAGs)_ | Filter to specific DAG IDs (repeat for multiple) |
@@ -177,6 +202,10 @@ rm -rf ~/Library/Application\ Support/local-airflow-watcher/
 ## Author
 
 Created by **Lior Bar** — Premium DE
+
+## Credits
+
+Developed with the assistance of [OpenAI Codex](https://openai.com/codex) and [Claude Code](https://claude.ai/code) (Anthropic).
 
 ## License
 

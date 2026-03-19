@@ -314,13 +314,18 @@ def clear_runtime_pid() -> None:
 def ensure_dialog_queue_worker() -> None:
     if load_runtime_pid() is not None:
         return
-    subprocess.Popen(
+    proc = subprocess.Popen(
         [sys.executable, os.path.abspath(__file__), "--drain-dialog-queue"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         start_new_session=True,
         text=True,
     )
+    # Give the worker a moment to write its PID file, then verify only one
+    # worker is running (guards against a rare double-spawn race).
+    time.sleep(0.05)
+    if load_runtime_pid() is None:
+        write_runtime_pid(proc.pid)
 
 
 def next_dialog_item_path() -> str | None:
@@ -359,6 +364,9 @@ def drain_dialog_queue() -> int:
                 os.remove(item_path)
             except FileNotFoundError:
                 pass
+    except Exception as error:
+        print(f"Dialog queue worker error: {error}", file=sys.stderr, flush=True)
+        return 1
     finally:
         clear_runtime_pid()
 
@@ -593,6 +601,7 @@ class SuccessPanelManager:
         self._write_state_file()
         self._ensure_helper_started()
         if not self.ui_enabled:
+            # Helper failed to start — fall back to a direct popup
             emit_popup(self.popup_mode, title, message, open_url)
 
     def _write_state_file(self) -> None:
@@ -713,6 +722,7 @@ class FailurePanelManager:
         self._write_state_file()
         self._ensure_helper_started()
         if not self.ui_enabled:
+            # Helper failed to start — fall back to a direct popup
             emit_popup(self.popup_mode, title, message, open_url)
 
     def _write_state_file(self) -> None:
