@@ -43,6 +43,14 @@ final class PopupController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         buildWindow()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "q" {
+                self?.dismissAction()
+                return nil
+            }
+            return event
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
