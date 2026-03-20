@@ -107,7 +107,7 @@
 
 - (void)buildWindow {
     NSDictionary<NSString *, NSColor *> *theme = [self theme];
-    NSRect rect = NSMakeRect(0, 0, 640, 320);
+    NSRect rect = NSMakeRect(0, 0, 640, 240);
     self.window = [[NSWindow alloc] initWithContentRect:rect
                                               styleMask:(NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable)
                                                 backing:NSBackingStoreBuffered
@@ -122,7 +122,7 @@
     NSView *content = [[NSView alloc] initWithFrame:rect];
     [self.window setContentView:content];
 
-    NSView *card = [[NSView alloc] initWithFrame:NSMakeRect(14, 14, 612, 292)];
+    NSView *card = [[NSView alloc] initWithFrame:NSMakeRect(14, 14, 612, 212)];
     [card setWantsLayer:YES];
     card.layer.backgroundColor = theme[@"surface"].CGColor;
     card.layer.borderColor = theme[@"border"].CGColor;
@@ -130,12 +130,12 @@
     card.layer.cornerRadius = 14.0;
     [content addSubview:card];
 
-    NSView *accent = [[NSView alloc] initWithFrame:NSMakeRect(0, 286, 612, 6)];
+    NSView *accent = [[NSView alloc] initWithFrame:NSMakeRect(0, 206, 612, 6)];
     [accent setWantsLayer:YES];
     accent.layer.backgroundColor = theme[@"accent"].CGColor;
     [card addSubview:accent];
 
-    NSTextField *title = [self labelWithFrame:NSMakeRect(22, 236, 560, 28)
+    NSTextField *title = [self labelWithFrame:NSMakeRect(22, 156, 560, 28)
                                          text:self.titleText
                                          font:[NSFont boldSystemFontOfSize:20]
                                         color:[NSColor colorWithCalibratedWhite:0.08 alpha:1.0]];
@@ -143,26 +143,26 @@
 
     NSString *subtitleText = [[self.kind lowercaseString] isEqualToString:@"success"] ? @"Airflow Success" :
                              ([[self.kind lowercaseString] isEqualToString:@"failure"] ? @"Airflow Failure" : @"Airflow Update");
-    NSTextField *subtitle = [self labelWithFrame:NSMakeRect(22, 214, 560, 20)
+    NSTextField *subtitle = [self labelWithFrame:NSMakeRect(22, 134, 560, 20)
                                             text:subtitleText
                                             font:[NSFont systemFontOfSize:12 weight:NSFontWeightMedium]
                                            color:[NSColor colorWithCalibratedWhite:0.36 alpha:1.0]];
     [card addSubview:subtitle];
 
-    NSTextField *message = [self labelWithFrame:NSMakeRect(22, 78, 568, 126)
+    NSTextField *message = [self labelWithFrame:NSMakeRect(22, 58, 568, 66)
                                            text:self.messageText
                                            font:[NSFont systemFontOfSize:13]
                                           color:[NSColor colorWithCalibratedWhite:0.16 alpha:1.0]];
     [card addSubview:message];
 
-    NSButton *dismiss = [[NSButton alloc] initWithFrame:NSMakeRect(492, 24, 96, 34)];
+    NSButton *dismiss = [[NSButton alloc] initWithFrame:NSMakeRect(492, 14, 96, 34)];
     [dismiss setTitle:@"Dismiss"];
     [dismiss setBezelStyle:NSBezelStyleRounded];
     [dismiss setTarget:self];
     [dismiss setAction:@selector(dismissAction:)];
     [card addSubview:dismiss];
 
-    NSButton *open = [[NSButton alloc] initWithFrame:NSMakeRect(344, 24, 136, 34)];
+    NSButton *open = [[NSButton alloc] initWithFrame:NSMakeRect(344, 14, 136, 34)];
     [open setTitle:@"Open in Airflow"];
     [open setBordered:NO];
     [open setTarget:self];
