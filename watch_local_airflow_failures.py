@@ -354,12 +354,15 @@ def drain_dialog_queue() -> int:
                     pass
                 continue
 
-            run_dialog(
-                str(payload.get("title", "Dagsy: Your DAG Watcher")),
-                str(payload.get("message", "")),
-                str(payload.get("url", "http://localhost:8080")),
-                str(payload.get("kind", "generic")),
-            )
+            try:
+                run_dialog(
+                    str(payload.get("title", "Dagsy: Your DAG Watcher")),
+                    str(payload.get("message", "")),
+                    str(payload.get("url", "http://localhost:8080")),
+                    str(payload.get("kind", "generic")),
+                )
+            except Exception as dialog_error:
+                print(f"Dialog failed, skipping item: {dialog_error}", file=sys.stderr, flush=True)
             try:
                 os.remove(item_path)
             except FileNotFoundError:
@@ -450,7 +453,6 @@ class DagRunKey:
 class SuccessfulRunKey:
     dag_id: str
     run_id: str
-    end_date: str | None
 
 
 @dataclass(frozen=True)
@@ -504,7 +506,6 @@ def load_watcher_state() -> tuple[
         SuccessfulRunKey(
             dag_id=str(item.get("dag_id", "")),
             run_id=str(item.get("run_id", "")),
-            end_date=item.get("end_date"),
         )
         for item in payload.get("manual_successes", [])
         if isinstance(item, dict)
@@ -540,13 +541,20 @@ def save_watcher_state(
         ),
         "manual_successes": sorted(
             (asdict(item) for item in manual_successes),
-            key=lambda item: (item["dag_id"], item["run_id"], item["end_date"] or ""),
+            key=lambda item: (item["dag_id"], item["run_id"]),
         ),
     }
     temp_path = WATCHER_STATE_PATH + ".tmp"
-    with open(temp_path, "w", encoding="utf-8") as state_file:
-        json.dump(payload, state_file)
-    os.replace(temp_path, WATCHER_STATE_PATH)
+    try:
+        with open(temp_path, "w", encoding="utf-8") as state_file:
+            json.dump(payload, state_file)
+        os.replace(temp_path, WATCHER_STATE_PATH)
+    except Exception:
+        try:
+            os.remove(temp_path)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 class SuccessPanelManager:
@@ -571,7 +579,6 @@ class SuccessPanelManager:
         dag_key = SuccessfulRunKey(
             dag_id=dag_run.get("dag_id", ""),
             run_id=dag_run.get("dag_run_id", ""),
-            end_date=dag_run.get("end_date"),
         )
         if dag_key in self._known_runs:
             return
@@ -648,7 +655,6 @@ class SuccessPanelManager:
                     SuccessfulRunKey(
                         dag_id=dag_id,
                         run_id=run_id,
-                        end_date=end_date or None,
                     )
                 )
             return normalized_items
@@ -676,6 +682,7 @@ class SuccessPanelManager:
                 )
         except Exception as error:
             print(f"Could not start success panel helper: {error}", file=sys.stderr, flush=True)
+            self.helper_process = None
             self.ui_enabled = False
 
     def _cleanup_existing_helpers(self) -> None:
@@ -780,6 +787,7 @@ class FailurePanelManager:
                 )
         except Exception as error:
             print(f"Could not start failure panel helper: {error}", file=sys.stderr, flush=True)
+            self.helper_process = None
             self.ui_enabled = False
 
     def _cleanup_existing_helpers(self) -> None:
@@ -803,7 +811,7 @@ def seed_seen_keys(
     limit: int,
     watched_dag_ids: set[str],
     watcher_start_time: datetime,
-) -> tuple[set[DagRunKey], set[TaskStateKey], set[DagRunKey], set[DagRunKey]]:
+) -> tuple[set[DagRunKey], set[TaskStateKey], set[DagRunKey], set[SuccessfulRunKey]]:
     dag_failures: set[DagRunKey] = set()
     task_states: set[TaskStateKey] = set()
     runs_with_task_alerts: set[DagRunKey] = set()
@@ -848,7 +856,6 @@ def seed_seen_keys(
                             SuccessfulRunKey(
                                 dag_id=dag_id,
                                 run_id=run_id,
-                                end_date=end_date_str,
                             )
                         )
                 except ValueError:
@@ -996,7 +1003,7 @@ def main() -> int:
 
                 if not dag_id or not run_id:
                     continue
-                if not manual_run and dag_key not in runs_with_task_alerts and dag_key not in seen_dag_failures and not is_successful_manual_run(dag_run):
+                if not manual_run and dag_key not in runs_with_task_alerts and dag_key not in seen_dag_failures and not is_successful_manual_run(dag_run) and dag_run.get("state") != "failed":
                     continue
 
                 emitted_task_popup_for_run = False
@@ -1064,22 +1071,21 @@ def main() -> int:
                     title, message = build_dag_failure_message(dag_run)
                     print(f"{title} | {message}", flush=True)
                     failure_url = build_airflow_error_url(args.base_url, dag_id, run_id)
-                    if args.popup_mode == "notification":
-                        emit_popup(args.popup_mode, title, message, failure_url)
-                    else:
-                        failure_panel.show_failure(title, message, failure_url)
                     save_watcher_state(
                         seen_dag_failures,
                         seen_task_states,
                         runs_with_task_alerts,
                         seen_manual_successes,
                     )
+                    if args.popup_mode == "notification":
+                        emit_popup(args.popup_mode, title, message, failure_url)
+                    else:
+                        failure_panel.show_failure(title, message, failure_url)
                     continue
 
                 success_key = SuccessfulRunKey(
                     dag_id=dag_id,
                     run_id=run_id,
-                    end_date=dag_run.get("end_date"),
                 )
                 if should_notify_success(dag_run, dag_key in runs_with_task_alerts) and success_key not in seen_manual_successes:
                     seen_manual_successes.add(success_key)
@@ -1100,12 +1106,14 @@ def main() -> int:
                 file=sys.stderr,
                 flush=True,
             )
+            seeded = False
         except urllib.error.URLError as error:
             print(
                 f"Could not reach local Airflow at {args.base_url}: {error}",
                 file=sys.stderr,
                 flush=True,
             )
+            seeded = False
         except Exception as error:
             print(f"Watcher error: {error}", file=sys.stderr, flush=True)
 
