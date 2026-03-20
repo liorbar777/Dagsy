@@ -996,7 +996,7 @@ def main() -> int:
 
                 if not dag_id or not run_id:
                     continue
-                if not manual_run and dag_key not in runs_with_task_alerts and not is_successful_manual_run(dag_run):
+                if not manual_run and dag_key not in runs_with_task_alerts and dag_key not in seen_dag_failures and not is_successful_manual_run(dag_run):
                     continue
 
                 emitted_task_popup_for_run = False
