@@ -97,12 +97,16 @@ Dagsy/
 ├── install.sh                        # One-command installer
 ├── bin/
 │   ├── airflow-dag-listener-controller  # App controller binary (macOS arm64/x86_64)
+│   ├── airflow-dag-listener             # DAG listener binary
+│   ├── airflow-dialog-helper            # Dialog helper binary
 │   ├── airflow-failure-alert            # Failure panel UI binary
 │   └── airflow-success-panel            # Success panel UI binary
 ├── app/
 │   └── Info.plist                    # macOS bundle metadata
 ├── assets/
-│   └── applet.icns                   # App icon
+│   ├── icon.svg                      # App icon source
+│   ├── icon.png                      # App icon (1024×1024 PNG)
+│   └── applet.icns                   # App icon (macOS ICNS bundle)
 ├── scripts/
 │   └── build_app.sh                  # Packages everything into Dagsy.app
 └── README.md
@@ -192,9 +196,9 @@ rm -rf ~/Library/Application\ Support/local-airflow-watcher/
 ## How It Works
 
 1. On first run Dagsy **seeds** its state by scanning recent DAG runs — preventing a flood of alerts for pre-existing failures.
-2. Every `--poll-interval` seconds it fetches recent runs via the Airflow REST API v2.
+2. Every `--poll-interval` seconds it queries the Airflow REST API v2 globally across **all DAGs** (running, queued, failed, and recent successes), so no manual run is ever missed regardless of how quickly it completes.
 3. New task failures/retries trigger a **failure panel** entry and a native dialog.
-4. Successful manual runs trigger a **success panel** entry.
+4. Successful manual runs trigger a **success panel** entry — multiple DAGs tracked independently.
 5. Dialogs are serialised through a queue so they appear one-by-one and are never dropped.
 
 ---
