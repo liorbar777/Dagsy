@@ -388,19 +388,37 @@ def list_recent_runs(
     limit: int,
     watched_dag_ids: set[str],
 ) -> list[dict[str, Any]]:
-    dag_ids = sorted(watched_dag_ids) if watched_dag_ids else [
-        dag.get("dag_id", "") for dag in list_dags(base_url, username, password)
-    ]
-
+    seen_keys: set[tuple[str, str]] = set()
     dag_runs: list[dict[str, Any]] = []
-    for dag_id in dag_ids:
+
+    # Single global calls to catch ALL active and recently failed runs across every DAG.
+    for state in ("running", "queued", "failed"):
+        query = urllib.parse.urlencode({"state": state, "limit": limit})
+        url = f"{base_url.rstrip('/')}/api/v2/dags/~/dagRuns?{query}"
+        try:
+            payload = make_request(url, base_url, username, password)
+            for run in payload.get("dag_runs", []):
+                key = (str(run.get("dag_id", "")), str(run.get("dag_run_id", "")))
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    dag_runs.append(run)
+        except Exception:
+            # Endpoint not supported — fall back to per-DAG calls below
+            break
+
+    # Per-DAG calls for explicitly watched DAGs (catches successful runs for success panel).
+    for dag_id in sorted(watched_dag_ids):
         if not dag_id:
             continue
         dag_id_encoded = urllib.parse.quote(dag_id, safe="")
         query = urllib.parse.urlencode({"order_by": "-start_date", "limit": limit})
         url = f"{base_url.rstrip('/')}/api/v2/dags/{dag_id_encoded}/dagRuns?{query}"
         payload = make_request(url, base_url, username, password)
-        dag_runs.extend(payload.get("dag_runs", []))
+        for run in payload.get("dag_runs", []):
+            key = (str(run.get("dag_id", "")), str(run.get("dag_run_id", "")))
+            if key not in seen_keys:
+                seen_keys.add(key)
+                dag_runs.append(run)
 
     def sort_key(item: dict[str, Any]) -> str:
         return item.get("start_date") or item.get("logical_date") or ""
@@ -1003,7 +1021,8 @@ def main() -> int:
 
                 if not dag_id or not run_id:
                     continue
-                if not manual_run and dag_key not in runs_with_task_alerts and dag_key not in seen_dag_failures and not is_successful_manual_run(dag_run) and dag_run.get("state") != "failed":
+                run_state = dag_run.get("state")
+                if run_state not in {"running", "queued"} and not manual_run and dag_key not in runs_with_task_alerts and dag_key not in seen_dag_failures and not is_successful_manual_run(dag_run) and run_state != "failed":
                     continue
 
                 emitted_task_popup_for_run = False
@@ -1016,7 +1035,22 @@ def main() -> int:
                 )
                 for task_instance in task_instances:
                     state = task_instance.get("state")
+                    task_id = task_instance.get("task_id", "")
                     if state not in {"up_for_retry", "failed"}:
+                        # Task was cleared or reset — remove stale tracking keys so
+                        # a subsequent failure triggers a fresh popup.
+                        stale = {
+                            k for k in seen_task_states
+                            if k.dag_id == dag_id and k.run_id == run_id and k.task_id == task_id
+                        }
+                        if stale:
+                            seen_task_states -= stale
+                            save_watcher_state(
+                                seen_dag_failures,
+                                seen_task_states,
+                                runs_with_task_alerts,
+                                seen_manual_successes,
+                            )
                         continue
 
                     task_key = TaskStateKey(
@@ -1051,6 +1085,11 @@ def main() -> int:
                         emit_popup(args.popup_mode, title, message, failure_url)
                     else:
                         failure_panel.show_failure(title, message, failure_url)
+
+                if dag_run.get("state") != "failed":
+                    # Run is no longer failed (tasks were cleared and it's running
+                    # again) — drop stale DAG-level key so a future failure re-alerts.
+                    seen_dag_failures.discard(dag_key)
 
                 if dag_run.get("state") == "failed":
                     if dag_key in seen_dag_failures:
@@ -1087,6 +1126,11 @@ def main() -> int:
                     dag_id=dag_id,
                     run_id=run_id,
                 )
+                if not should_notify_success(dag_run, dag_key in runs_with_task_alerts):
+                    # Run is no longer successful (cleared/re-running) — drop stale
+                    # success key so a future success re-alerts.
+                    seen_manual_successes.discard(success_key)
+
                 if should_notify_success(dag_run, dag_key in runs_with_task_alerts) and success_key not in seen_manual_successes:
                     seen_manual_successes.add(success_key)
                     print(

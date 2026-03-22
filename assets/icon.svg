@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Rounded square background -->
+  <rect width="1024" height="1024" rx="220" ry="220" fill="#E8EDF5"/>
+
+  <!-- 6 arms radiating from center at 0°, 60°, 120°, 180°, 240°, 300° -->
+  <!-- Arm stroke: dark blue #2C5282, thick -->
+
+  <!-- Arm 0° (right) -->
+  <line x1="512" y1="512" x2="740" y2="512" stroke="#2B4A7A" stroke-width="52" stroke-linecap="round"/>
+  <!-- Arm 60° (upper-right) -->
+  <line x1="512" y1="512" x2="626" y2="314" stroke="#2B4A7A" stroke-width="52" stroke-linecap="round"/>
+  <!-- Arm 120° (upper-left) -->
+  <line x1="512" y1="512" x2="398" y2="314" stroke="#2B4A7A" stroke-width="52" stroke-linecap="round"/>
+  <!-- Arm 180° (left) -->
+  <line x1="512" y1="512" x2="284" y2="512" stroke="#2B4A7A" stroke-width="52" stroke-linecap="round"/>
+  <!-- Arm 240° (lower-left) -->
+  <line x1="512" y1="512" x2="398" y2="710" stroke="#2B4A7A" stroke-width="52" stroke-linecap="round"/>
+  <!-- Arm 300° (lower-right) -->
+  <line x1="512" y1="512" x2="626" y2="710" stroke="#2B4A7A" stroke-width="52" stroke-linecap="round"/>
+
+  <!-- Center full circle (blue) -->
+  <circle cx="512" cy="512" r="88" fill="#3B72C0"/>
+
+  <!-- Node dots at arm ends, alternating green/red -->
+  <!-- 0° right: green -->
+  <circle cx="740" cy="512" r="44" fill="#38A169"/>
+  <!-- 60° upper-right: red -->
+  <circle cx="626" cy="314" r="44" fill="#E53E3E"/>
+  <!-- 120° upper-left: green -->
+  <circle cx="398" cy="314" r="44" fill="#38A169"/>
+  <!-- 180° left: red -->
+  <circle cx="284" cy="512" r="44" fill="#E53E3E"/>
+  <!-- 240° lower-left: green -->
+  <circle cx="398" cy="710" r="44" fill="#38A169"/>
+  <!-- 300° lower-right: red -->
+  <circle cx="626" cy="710" r="44" fill="#E53E3E"/>
+</svg>
