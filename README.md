@@ -18,7 +18,7 @@
 
 You triggered the DAG. It's running. Now what — do you just... sit there and watch it? 🙃
 
-Local DAGs can take minutes or hours. Switching back to the Airflow UI tab every 30 seconds to check if something changed isn't a workflow, it's a punishment. **Dagsy fixes that.**
+Local DAGs can take minutes or hours. You triggered it — now you're stuck waiting, not knowing when it's done or if something broke. **Dagsy fixes that.**
 
 Trigger your DAG, then go do literally anything else. Write code, answer Slack, grab a coffee ☕. The moment something fails, retries, or finishes — a native macOS popup taps you on the shoulder. No missed failures. No "wait, when did that break?"
 
