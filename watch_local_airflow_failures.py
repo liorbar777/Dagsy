@@ -391,8 +391,8 @@ def list_recent_runs(
     seen_keys: set[tuple[str, str]] = set()
     dag_runs: list[dict[str, Any]] = []
 
-    # Single global calls to catch ALL active and recently failed runs across every DAG.
-    for state in ("running", "queued", "failed"):
+    # Single global calls to catch ALL active, recently failed, and recent successful runs.
+    for state in ("running", "queued", "failed", "success"):
         query = urllib.parse.urlencode({"state": state, "limit": limit})
         url = f"{base_url.rstrip('/')}/api/v2/dags/~/dagRuns?{query}"
         try:
