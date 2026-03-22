@@ -10,5 +10,8 @@ __pycache__/
 # Built app
 *.app/
 
+# Claude Code settings (local only)
+.claude/
+
 # Runtime state (local only)
 ~/Library/Application\ Support/local-airflow-watcher/
