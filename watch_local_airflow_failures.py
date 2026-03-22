@@ -398,10 +398,15 @@ def list_recent_runs(
         try:
             payload = make_request(url, base_url, username, password)
             for run in payload.get("dag_runs", []):
-                key = (str(run.get("dag_id", "")), str(run.get("dag_run_id", "")))
+                dag_id = str(run.get("dag_id", ""))
+                key = (dag_id, str(run.get("dag_run_id", "")))
                 if key not in seen_keys:
                     seen_keys.add(key)
                     dag_runs.append(run)
+                # Track this DAG for per-DAG polling so we catch it after it
+                # transitions to success (no longer returned by state filters).
+                if dag_id:
+                    watched_dag_ids.add(dag_id)
         except Exception:
             # Endpoint not supported — fall back to per-DAG calls below
             break
@@ -594,14 +599,6 @@ class SuccessPanelManager:
 
     def add_success(self, dag_run: dict[str, Any], base_url: str) -> None:
         self._items = self._load_existing_items()
-        dag_key = SuccessfulRunKey(
-            dag_id=dag_run.get("dag_id", ""),
-            run_id=dag_run.get("dag_run_id", ""),
-        )
-        if dag_key in self._known_runs:
-            return
-
-        self._known_runs.add(dag_key)
         dag_id = dag_run.get("dag_id", "<unknown dag>")
         run_id = dag_run.get("dag_run_id", "<unknown run>")
         end_date = dag_run.get("end_date") or "unknown end time"
@@ -829,6 +826,7 @@ def seed_seen_keys(
     limit: int,
     watched_dag_ids: set[str],
     watcher_start_time: datetime,
+    success_end_dates: dict[tuple[str, str], str],
 ) -> tuple[set[DagRunKey], set[TaskStateKey], set[DagRunKey], set[SuccessfulRunKey]]:
     dag_failures: set[DagRunKey] = set()
     task_states: set[TaskStateKey] = set()
@@ -876,6 +874,7 @@ def seed_seen_keys(
                                 run_id=run_id,
                             )
                         )
+                        success_end_dates[(dag_id, run_id)] = end_date_str
                 except ValueError:
                     pass
     return dag_failures, task_states, runs_with_task_alerts, successful_manual_runs
@@ -973,6 +972,7 @@ def main() -> int:
         seen_manual_successes,
         _,
     ) = load_watcher_state()
+    success_end_dates: dict[tuple[str, str], str] = {}
     seeded = False
 
     while True:
@@ -990,6 +990,7 @@ def main() -> int:
                     limit=args.limit,
                     watched_dag_ids=watched_dag_ids,
                     watcher_start_time=watcher_start_time,
+                    success_end_dates=success_end_dates,
                 )
                 print(
                     "Seeded "
@@ -1126,13 +1127,32 @@ def main() -> int:
                     dag_id=dag_id,
                     run_id=run_id,
                 )
+                current_end_date = dag_run.get("end_date") or ""
                 if not should_notify_success(dag_run, dag_key in runs_with_task_alerts):
                     # Run is no longer successful (cleared/re-running) — drop stale
                     # success key so a future success re-alerts.
                     seen_manual_successes.discard(success_key)
+                    success_end_dates.pop((dag_id, run_id), None)
 
-                if should_notify_success(dag_run, dag_key in runs_with_task_alerts) and success_key not in seen_manual_successes:
+                if should_notify_success(dag_run, dag_key in runs_with_task_alerts) and (
+                    success_key not in seen_manual_successes
+                    or success_end_dates.get((dag_id, run_id)) != current_end_date
+                ):
+                    # Silently seed runs that completed before the watcher started —
+                    # these are old runs from newly-discovered DAGs and should not pop up.
+                    if current_end_date:
+                        try:
+                            end_dt = datetime.fromisoformat(current_end_date.replace("Z", "+00:00"))
+                            if end_dt.tzinfo is None:
+                                end_dt = end_dt.replace(tzinfo=timezone.utc)
+                            if end_dt < watcher_start_time:
+                                seen_manual_successes.add(success_key)
+                                success_end_dates[(dag_id, run_id)] = current_end_date
+                                continue
+                        except ValueError:
+                            pass
                     seen_manual_successes.add(success_key)
+                    success_end_dates[(dag_id, run_id)] = current_end_date
                     print(
                         f"DAG succeeded: {dag_id} | Run: {run_id} | Finished: {dag_run.get('end_date')}",
                         flush=True,
