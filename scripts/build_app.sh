@@ -53,13 +53,15 @@ clang -arch arm64 -arch x86_64 \
   "$REPO_ROOT/src/airflow_stack_panel.m" \
   -o "$BUILD_DIR/airflow-stack-panel"
 
+MACOS_SDK="$(xcrun --sdk macosx --show-sdk-path)"
+
 echo "  Compiling dialog helper (arm64)..."
-swiftc -O -target arm64-apple-macosx11.0 \
+xcrun swiftc -O -target arm64-apple-macosx11.0 -sdk "$MACOS_SDK" \
   "$REPO_ROOT/src/airflow-dialog-helper.swift" \
   -o "$BUILD_DIR/airflow-dialog-helper-arm64"
 
 echo "  Compiling dialog helper (x86_64)..."
-swiftc -O -target x86_64-apple-macosx10.15 \
+xcrun swiftc -O -target x86_64-apple-macosx10.15 -sdk "$MACOS_SDK" \
   "$REPO_ROOT/src/airflow-dialog-helper.swift" \
   -o "$BUILD_DIR/airflow-dialog-helper-x86_64"
 
