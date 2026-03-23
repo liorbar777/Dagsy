@@ -35,8 +35,6 @@ It's especially great for long backfills and multi-task pipelines where you need
 ## Install
 
 ```bash
-git clone https://github.com/liorbar777/Dagsy.git
-cd Dagsy
 ./install.sh
 ```
 
