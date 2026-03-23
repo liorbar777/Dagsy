@@ -41,19 +41,21 @@ fi
 BUILD_DIR="$(mktemp -d)"
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
+MACOS_SDK="$(xcrun --sdk macosx --show-sdk-path)"
+
 echo "  Compiling controller..."
-clang -arch arm64 -arch x86_64 \
+xcrun clang -arch arm64 -arch x86_64 -isysroot "$MACOS_SDK" \
+  -mmacosx-version-min=10.15 \
   -framework AppKit -framework Foundation \
   "$REPO_ROOT/src/dagsy_controller.m" \
   -o "$BUILD_DIR/airflow-dag-listener-controller"
 
 echo "  Compiling panels..."
-clang -arch arm64 -arch x86_64 \
+xcrun clang -arch arm64 -arch x86_64 -isysroot "$MACOS_SDK" \
+  -mmacosx-version-min=10.15 \
   -framework AppKit -framework Foundation \
   "$REPO_ROOT/src/airflow_stack_panel.m" \
   -o "$BUILD_DIR/airflow-stack-panel"
-
-MACOS_SDK="$(xcrun --sdk macosx --show-sdk-path)"
 
 echo "  Compiling dialog helper (arm64)..."
 xcrun swiftc -O -target arm64-apple-macosx11.0 -sdk "$MACOS_SDK" \
