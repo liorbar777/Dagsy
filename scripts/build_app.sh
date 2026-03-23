@@ -93,21 +93,11 @@ chmod +x "$HELPERS_DIR/airflow-failure-alert" \
          "$HELPERS_DIR/airflow-success-panel" \
          "$HELPERS_DIR/airflow-dialog-helper"
 
-# airflow-dag-listener: shell script that invokes the bundled Python watcher.
-# Using a script (rather than a compiled binary) makes this arch-independent.
-# /usr/bin/python3 ships with macOS on all supported versions.
-cat > "$HELPERS_DIR/airflow-dag-listener" << 'SCRIPT_EOF'
-#!/bin/bash
-exec /usr/bin/python3 "$HOME/Applications/Dagsy.app/Contents/MacOS/watch_local_airflow_failures.py" "$@"
-SCRIPT_EOF
-chmod +x "$HELPERS_DIR/airflow-dag-listener"
-
 echo ""
 echo "✓ Dagsy.app built at: $DEST"
 echo "  Helper binaries:    $HELPERS_DIR/airflow-failure-alert"
 echo "                      $HELPERS_DIR/airflow-success-panel"
 echo "                      $HELPERS_DIR/airflow-dialog-helper"
-echo "                      $HELPERS_DIR/airflow-dag-listener"
 echo ""
 echo "Double-click $DEST to launch, or drag it to /Applications."
 echo ""
