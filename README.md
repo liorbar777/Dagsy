@@ -32,13 +32,7 @@ It's especially great for long backfills and multi-task pipelines where you need
 
 ---
 
-## Install (one command)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/liorbar777/Dagsy/master/install.sh | bash
-```
-
-Or clone and install:
+## Install
 
 ```bash
 git clone https://github.com/liorbar777/Dagsy.git
@@ -97,7 +91,6 @@ Dagsy/
 ├── install.sh                        # One-command installer
 ├── bin/
 │   ├── airflow-dag-listener-controller  # App controller binary (macOS arm64/x86_64)
-│   ├── airflow-dag-listener             # DAG listener binary
 │   ├── airflow-dialog-helper            # Dialog helper binary
 │   ├── airflow-failure-alert            # Failure panel UI binary
 │   └── airflow-success-panel            # Success panel UI binary
