@@ -1,18 +1,17 @@
 #!/usr/bin/env bash
-# build_app.sh — Package Dagsy into a macOS .app bundle
+# build_app.sh — Build Dagsy from source and package as a macOS .app bundle
 #
 # Usage:
 #   ./scripts/build_app.sh [--dest /path/to/output]
 #
-# By default the .app is written to ~/Applications/Dagsy.app.
-# Pre-compiled binaries are taken from the repo's bin/ directory.
-# Override individual paths via env vars if needed.
+# Produces universal binaries (arm64 + x86_64) that run on any Mac.
+# Requires Xcode Command Line Tools: xcode-select --install
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# ── Configurable paths ────────────────────────────────────────────────────────
+# ── Args ──────────────────────────────────────────────────────────────────────
 DEST=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -22,53 +21,86 @@ while [[ $# -gt 0 ]]; do
 done
 DEST="${DEST:-$HOME/Applications/Dagsy.app}"
 
-CONTROLLER_BIN="${CONTROLLER_BIN:-$REPO_ROOT/bin/airflow-dag-listener-controller}"
-FAILURE_PANEL="${FAILURE_PANEL:-$REPO_ROOT/bin/airflow-failure-alert}"
-SUCCESS_PANEL="${SUCCESS_PANEL:-$REPO_ROOT/bin/airflow-success-panel}"
-DIALOG_HELPER="${DIALOG_HELPER:-$REPO_ROOT/bin/airflow-dialog-helper}"
-DAG_LISTENER="${DAG_LISTENER:-$REPO_ROOT/bin/airflow-dag-listener}"
-# ──────────────────────────────────────────────────────────────────────────────
-
 echo "Building Dagsy.app → $DEST"
 
-# Validate required binaries
-for bin_path in "$CONTROLLER_BIN" "$FAILURE_PANEL" "$SUCCESS_PANEL" "$DIALOG_HELPER" "$DAG_LISTENER"; do
-  if [[ ! -f "$bin_path" ]]; then
-    echo "ERROR: Required binary not found: $bin_path"
-    exit 1
-  fi
-done
+# ── Check dependencies ────────────────────────────────────────────────────────
+if ! command -v clang &>/dev/null; then
+  echo ""
+  echo "ERROR: clang not found. Install Xcode Command Line Tools:"
+  echo "  xcode-select --install"
+  exit 1
+fi
+if ! command -v swiftc &>/dev/null; then
+  echo ""
+  echo "ERROR: swiftc not found. Install Xcode Command Line Tools:"
+  echo "  xcode-select --install"
+  exit 1
+fi
 
-# Remove previous build
+# ── Compile ───────────────────────────────────────────────────────────────────
+BUILD_DIR="$(mktemp -d)"
+trap 'rm -rf "$BUILD_DIR"' EXIT
+
+echo "  Compiling controller..."
+clang -arch arm64 -arch x86_64 \
+  -framework AppKit -framework Foundation \
+  "$REPO_ROOT/src/dagsy_controller.m" \
+  -o "$BUILD_DIR/airflow-dag-listener-controller"
+
+echo "  Compiling panels..."
+clang -arch arm64 -arch x86_64 \
+  -framework AppKit -framework Foundation \
+  "$REPO_ROOT/src/airflow_stack_panel.m" \
+  -o "$BUILD_DIR/airflow-stack-panel"
+
+echo "  Compiling dialog helper (arm64)..."
+swiftc -O -target arm64-apple-macosx11.0 \
+  "$REPO_ROOT/src/airflow-dialog-helper.swift" \
+  -o "$BUILD_DIR/airflow-dialog-helper-arm64"
+
+echo "  Compiling dialog helper (x86_64)..."
+swiftc -O -target x86_64-apple-macosx10.15 \
+  "$REPO_ROOT/src/airflow-dialog-helper.swift" \
+  -o "$BUILD_DIR/airflow-dialog-helper-x86_64"
+
+echo "  Creating universal dialog helper..."
+lipo -create \
+  "$BUILD_DIR/airflow-dialog-helper-arm64" \
+  "$BUILD_DIR/airflow-dialog-helper-x86_64" \
+  -output "$BUILD_DIR/airflow-dialog-helper"
+
+# ── Package .app ──────────────────────────────────────────────────────────────
 rm -rf "$DEST"
 
-# Create bundle layout
 MACOS_DIR="$DEST/Contents/MacOS"
 RESOURCES_DIR="$DEST/Contents/Resources"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
-# Info.plist + PkgInfo
-cp "$REPO_ROOT/app/Info.plist" "$DEST/Contents/Info.plist"
-echo -n "APPL????" > "$DEST/Contents/PkgInfo"
+cp "$REPO_ROOT/app/Info.plist"        "$DEST/Contents/Info.plist"
+echo -n "APPL????"                   > "$DEST/Contents/PkgInfo"
+cp "$REPO_ROOT/assets/applet.icns"    "$RESOURCES_DIR/applet.icns"
 
-# Icon
-cp "$REPO_ROOT/assets/applet.icns" "$RESOURCES_DIR/applet.icns"
-
-# Controller binary + watcher script
-cp "$CONTROLLER_BIN" "$MACOS_DIR/airflow-dag-listener-controller"
+cp "$BUILD_DIR/airflow-dag-listener-controller" "$MACOS_DIR/airflow-dag-listener-controller"
 chmod +x "$MACOS_DIR/airflow-dag-listener-controller"
 cp "$REPO_ROOT/watch_local_airflow_failures.py" "$MACOS_DIR/watch_local_airflow_failures.py"
 
 # Helper binaries — placed next to the .app
 HELPERS_DIR="$(dirname "$DEST")"
-cp "$FAILURE_PANEL"   "$HELPERS_DIR/airflow-failure-alert"
-cp "$SUCCESS_PANEL"   "$HELPERS_DIR/airflow-success-panel"
-cp "$DIALOG_HELPER"   "$HELPERS_DIR/airflow-dialog-helper"
-cp "$DAG_LISTENER"    "$HELPERS_DIR/airflow-dag-listener"
+cp "$BUILD_DIR/airflow-stack-panel"   "$HELPERS_DIR/airflow-failure-alert"
+cp "$BUILD_DIR/airflow-stack-panel"   "$HELPERS_DIR/airflow-success-panel"
+cp "$BUILD_DIR/airflow-dialog-helper" "$HELPERS_DIR/airflow-dialog-helper"
 chmod +x "$HELPERS_DIR/airflow-failure-alert" \
          "$HELPERS_DIR/airflow-success-panel" \
-         "$HELPERS_DIR/airflow-dialog-helper" \
-         "$HELPERS_DIR/airflow-dag-listener"
+         "$HELPERS_DIR/airflow-dialog-helper"
+
+# airflow-dag-listener: shell script that invokes the bundled Python watcher.
+# Using a script (rather than a compiled binary) makes this arch-independent.
+# /usr/bin/python3 ships with macOS on all supported versions.
+cat > "$HELPERS_DIR/airflow-dag-listener" << 'SCRIPT_EOF'
+#!/bin/bash
+exec /usr/bin/python3 "$HOME/Applications/Dagsy.app/Contents/MacOS/watch_local_airflow_failures.py" "$@"
+SCRIPT_EOF
+chmod +x "$HELPERS_DIR/airflow-dag-listener"
 
 echo ""
 echo "✓ Dagsy.app built at: $DEST"

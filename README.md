@@ -35,7 +35,7 @@ It's especially great for long backfills and multi-task pipelines where you need
 ## Install (one command)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/liorbar777/Dagsy/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/liorbar777/Dagsy/master/install.sh | bash
 ```
 
 Or clone and install:

@@ -2,7 +2,7 @@
 # install.sh — One-command installer for Dagsy
 #
 # Usage (no clone needed):
-#   curl -fsSL https://raw.githubusercontent.com/liorbar777/Dagsy/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/liorbar777/Dagsy/master/install.sh | bash
 #
 # Or if you've already cloned the repo:
 #   ./install.sh
