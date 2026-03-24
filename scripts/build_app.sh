@@ -9,11 +9,22 @@
 
 set -euo pipefail
 
-# Prefer Xcode.app toolchain over standalone Command Line Tools to avoid
-# Swift compiler/SDK version mismatches (swiftlang minor version skew).
-if [ -x "/Applications/Xcode.app/Contents/Developer/usr/bin/swiftc" ]; then
-  export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+# Pick a consistent toolchain so swiftc and the SDK always match.
+# Without this, xcrun may mix a swift.org swiftc with a CLT SDK, causing
+# "SDK is not supported by the compiler" version-skew errors.
+_toolchain_set=false
+for _xcode in "/Applications/Xcode.app" /Applications/Xcode-*.app; do
+  if [ -x "$_xcode/Contents/Developer/usr/bin/swiftc" ]; then
+    export DEVELOPER_DIR="$_xcode/Contents/Developer"
+    _toolchain_set=true
+    break
+  fi
+done
+if [ "$_toolchain_set" = false ] && [ -d "/Library/Developer/CommandLineTools" ]; then
+  # Force CLT so xcrun doesn't accidentally pick a swift.org swiftc
+  export DEVELOPER_DIR="/Library/Developer/CommandLineTools"
 fi
+unset _toolchain_set _xcode
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -42,6 +53,23 @@ if ! command -v swiftc &>/dev/null; then
   echo "  xcode-select --install"
   exit 1
 fi
+
+# Validate that swiftc and the macOS SDK versions match.
+# A mismatch (e.g. CLT ships mismatched swiftlang builds) causes:
+#   "SDK is not supported by the compiler"
+_sdk_path="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
+_mismatch="$(xcrun swiftc -sdk "$_sdk_path" -e '' 2>&1 | grep 'SDK is not supported by the compiler' || true)"
+if [ -n "$_mismatch" ]; then
+  echo ""
+  echo "ERROR: Swift compiler/SDK version mismatch on this machine."
+  echo "  Fix: update Xcode Command Line Tools, then retry:"
+  echo "    sudo rm -rf /Library/Developer/CommandLineTools"
+  echo "    xcode-select --install"
+  echo ""
+  echo "  If that doesn't help, install Xcode from the App Store."
+  exit 1
+fi
+unset _sdk_path _mismatch
 
 # ── Compile ───────────────────────────────────────────────────────────────────
 BUILD_DIR="$(mktemp -d)"
