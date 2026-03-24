@@ -58,12 +58,12 @@ xcrun clang -arch arm64 -arch x86_64 -isysroot "$MACOS_SDK" \
   -o "$BUILD_DIR/airflow-stack-panel"
 
 echo "  Compiling dialog helper (arm64)..."
-xcrun swiftc -O -target arm64-apple-macosx11.0 -sdk "$MACOS_SDK" \
+xcrun swiftc -O -target arm64-apple-macosx11.0 \
   "$REPO_ROOT/src/airflow-dialog-helper.swift" \
   -o "$BUILD_DIR/airflow-dialog-helper-arm64"
 
 echo "  Compiling dialog helper (x86_64)..."
-xcrun swiftc -O -target x86_64-apple-macosx10.15 -sdk "$MACOS_SDK" \
+xcrun swiftc -O -target x86_64-apple-macosx10.15 \
   "$REPO_ROOT/src/airflow-dialog-helper.swift" \
   -o "$BUILD_DIR/airflow-dialog-helper-x86_64"
 
