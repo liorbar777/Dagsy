@@ -58,7 +58,9 @@ fi
 # A mismatch (e.g. CLT ships mismatched swiftlang builds) causes:
 #   "SDK is not supported by the compiler"
 _sdk_path="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
-_mismatch="$(xcrun swiftc -sdk "$_sdk_path" -e '' 2>&1 | grep 'SDK is not supported by the compiler' || true)"
+_check_tmp="$(mktemp -d)"
+_mismatch="$(echo 'import Foundation' | xcrun swiftc -sdk "$_sdk_path" -o "$_check_tmp/sdk_check" - 2>&1 | grep 'SDK is not supported by the compiler' || true)"
+rm -rf "$_check_tmp"
 if [ -n "$_mismatch" ]; then
   echo ""
   echo "ERROR: Swift compiler/SDK version mismatch on this machine."
@@ -69,7 +71,7 @@ if [ -n "$_mismatch" ]; then
   echo "  If that doesn't help, install Xcode from the App Store."
   exit 1
 fi
-unset _sdk_path _mismatch
+unset _sdk_path _check_tmp _mismatch
 
 # ── Compile ───────────────────────────────────────────────────────────────────
 BUILD_DIR="$(mktemp -d)"
