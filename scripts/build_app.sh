@@ -11,7 +11,7 @@ set -euo pipefail
 
 # Prefer Xcode.app toolchain over standalone Command Line Tools to avoid
 # Swift compiler/SDK version mismatches (swiftlang minor version skew).
-if [ -d "/Applications/Xcode.app/Contents/Developer" ]; then
+if [ -x "/Applications/Xcode.app/Contents/Developer/usr/bin/swiftc" ]; then
   export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 fi
 
