@@ -160,6 +160,7 @@
     [self.cardView addSubview:self.detailLabel];
 
     self.startButton = [self makeButtonWithTitle:@"Start Watcher" action:@selector(startListener:) frame:NSMakeRect(30, 28, 140, 36)];
+    self.startButton.bordered = NO;
     self.startButton.wantsLayer = YES;
     self.startButton.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.12 green:0.60 blue:0.33 alpha:1.0].CGColor;
     self.startButton.layer.cornerRadius = 10.0;
@@ -167,6 +168,7 @@
     [self.cardView addSubview:self.startButton];
 
     self.stopButton = [self makeButtonWithTitle:@"Stop Watcher" action:@selector(stopListener:) frame:NSMakeRect(184, 28, 136, 36)];
+    self.stopButton.bordered = NO;
     self.stopButton.wantsLayer = YES;
     self.stopButton.layer.backgroundColor = [NSColor colorWithCalibratedRed:0.78 green:0.25 blue:0.18 alpha:1.0].CGColor;
     self.stopButton.layer.cornerRadius = 10.0;
@@ -228,7 +230,9 @@
                 ? @"Dagsy is watching local Airflow and ready to surface failures, recoveries, and manual-run completions."
                 : @"The local watcher is stopped. Start it to bring Dagsy notifications back online.";
             self.startButton.enabled = !running;
+            self.startButton.alphaValue = running ? 0.4 : 1.0;
             self.stopButton.enabled = running;
+            self.stopButton.alphaValue = running ? 1.0 : 0.4;
         });
     });
 }
