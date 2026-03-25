@@ -41,9 +41,43 @@ mkdir -p "$INSTALL_DIR"
 
 bash "$REPO_ROOT/scripts/build_app.sh" --dest "$INSTALL_DIR/Dagsy.app"
 
+# ── Write LaunchAgent plist ────────────────────────────────────────────────────
+PLIST_DIR="$HOME/Library/LaunchAgents"
+PLIST_PATH="$PLIST_DIR/com.wix.local-airflow-watcher.plist"
+WATCHER_SCRIPT="$INSTALL_DIR/Dagsy.app/Contents/MacOS/watch_local_airflow_failures.py"
+LOG_PATH="$HOME/Library/Logs/local-airflow-watcher.log"
+
+mkdir -p "$PLIST_DIR"
+
+cat > "$PLIST_PATH" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.wix.local-airflow-watcher</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>$WATCHER_SCRIPT</string>
+    </array>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>$LOG_PATH</string>
+    <key>StandardErrorPath</key>
+    <string>$LOG_PATH</string>
+</dict>
+</plist>
+PLIST
+
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Dagsy installed to: $INSTALL_DIR/Dagsy.app"
+echo "  LaunchAgent plist:  $PLIST_PATH"
 echo ""
 echo "  To launch:"
 echo "    open $INSTALL_DIR/Dagsy.app"
