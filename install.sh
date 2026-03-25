@@ -16,6 +16,16 @@ CLONE_DIR="$(mktemp -d)/Dagsy"
 echo "Installing Dagsy..."
 echo ""
 
+# Check for Xcode Command Line Tools
+if ! xcode-select -p &>/dev/null; then
+  echo "ERROR: Xcode Command Line Tools are not installed."
+  echo "  Run this first, then re-run install.sh:"
+  echo ""
+  echo "    xcode-select --install"
+  echo ""
+  exit 1
+fi
+
 # If we're running from inside a cloned repo, use it directly
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-/dev/stdin}")" 2>/dev/null && pwd || echo "")"
 if [[ -f "$SCRIPT_DIR/scripts/build_app.sh" ]]; then
