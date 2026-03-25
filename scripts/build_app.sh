@@ -9,11 +9,17 @@
 
 set -euo pipefail
 
-# Pick a consistent toolchain so swiftc and the SDK always match.
-# Without this, xcrun may mix a swift.org swiftc with a CLT SDK, causing
-# "SDK is not supported by the compiler" version-skew errors.
+# SDKROOT from the environment can force a macOS SDK that does not match the
+# Swift compiler on PATH (common in IDEs). Always derive the SDK from the same
+# DEVELOPER_DIR we use for swiftc.
+unset SDKROOT
+
+# Pick a single Apple toolchain so swiftc, clang, and the macOS SDK all match.
+# Mixing sources (e.g. swift.org swiftc + Xcode SDK, or updated CLT + old Xcode)
+# causes: "SDK is not supported by the compiler" / "failed to build module 'AppKit'".
 _toolchain_set=false
 for _xcode in "/Applications/Xcode.app" /Applications/Xcode-*.app; do
+  [ -d "$_xcode" ] || continue
   if [ -x "$_xcode/Contents/Developer/usr/bin/swiftc" ]; then
     export DEVELOPER_DIR="$_xcode/Contents/Developer"
     _toolchain_set=true
@@ -21,10 +27,20 @@ for _xcode in "/Applications/Xcode.app" /Applications/Xcode-*.app; do
   fi
 done
 if [ "$_toolchain_set" = false ] && [ -d "/Library/Developer/CommandLineTools" ]; then
-  # Force CLT so xcrun doesn't accidentally pick a swift.org swiftc
   export DEVELOPER_DIR="/Library/Developer/CommandLineTools"
+  _toolchain_set=true
 fi
 unset _toolchain_set _xcode
+
+if [ -z "${DEVELOPER_DIR:-}" ] || [ ! -x "$DEVELOPER_DIR/usr/bin/swiftc" ]; then
+  echo ""
+  echo "ERROR: No usable Apple Swift toolchain found."
+  echo "  Install Xcode from the App Store, or Command Line Tools: xcode-select --install"
+  exit 1
+fi
+
+export PATH="$DEVELOPER_DIR/usr/bin:$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin:$PATH"
+SWIFTC="$DEVELOPER_DIR/usr/bin/swiftc"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -39,39 +55,44 @@ done
 DEST="${DEST:-$HOME/Applications/Dagsy.app}"
 
 echo "Building Dagsy.app → $DEST"
+echo "  Using DEVELOPER_DIR=$DEVELOPER_DIR"
 
 # ── Check dependencies ────────────────────────────────────────────────────────
-if ! command -v clang &>/dev/null; then
+if [ ! -x "$DEVELOPER_DIR/usr/bin/clang" ]; then
   echo ""
-  echo "ERROR: clang not found. Install Xcode Command Line Tools:"
-  echo "  xcode-select --install"
-  exit 1
-fi
-if ! command -v swiftc &>/dev/null; then
-  echo ""
-  echo "ERROR: swiftc not found. Install Xcode Command Line Tools:"
-  echo "  xcode-select --install"
+  echo "ERROR: clang not found under the active toolchain."
+  echo "  Install Xcode or Command Line Tools: xcode-select --install"
   exit 1
 fi
 
-# Validate that swiftc and the macOS SDK versions match.
-# A mismatch (e.g. CLT ships mismatched swiftlang builds) causes:
-#   "SDK is not supported by the compiler"
+# Validate that this Swift compiler can build AppKit against the same SDK (tiny
+# swiftlang build differences vs the SDK break with "SDK is not supported" /
+# "failed to build module 'AppKit'").
 _sdk_path="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)"
 _check_tmp="$(mktemp -d)"
-_mismatch="$(echo 'import Foundation' | xcrun swiftc -sdk "$_sdk_path" -o "$_check_tmp/sdk_check" - 2>&1 | grep 'SDK is not supported by the compiler' || true)"
-rm -rf "$_check_tmp"
-if [ -n "$_mismatch" ]; then
+_sdk_compile_err="$_check_tmp/swift_sdk_err.txt"
+if ! echo 'import AppKit' | "$SWIFTC" -sdk "$_sdk_path" -o "$_check_tmp/sdk_check" - 2>"$_sdk_compile_err"; then
   echo ""
-  echo "ERROR: Swift compiler/SDK version mismatch on this machine."
-  echo "  Fix: update Xcode Command Line Tools, then retry:"
-  echo "    sudo rm -rf /Library/Developer/CommandLineTools"
-  echo "    xcode-select --install"
+  echo "ERROR: Swift compiler and macOS SDK do not match (same symptom as building in an IDE with the wrong toolchain)."
+  echo "  Active toolchain: $DEVELOPER_DIR"
+  echo "  SDK: $_sdk_path"
   echo ""
-  echo "  If that doesn't help, install Xcode from the App Store."
+  echo "  Compiler output:"
+  sed 's/^/    /' "$_sdk_compile_err" || true
+  echo ""
+  echo "  Typical fixes:"
+  echo "    • Point the active developer directory at full Xcode (then retry this script):"
+  echo "        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
+  echo "    • Or reinstall Command Line Tools so Swift and the SDK update together:"
+  echo "        sudo rm -rf /Library/Developer/CommandLineTools"
+  echo "        xcode-select --install"
+  echo "    • In PyCharm/IDE: do not compile airflow-dialog-helper.swift with a random swiftc;"
+  echo "      run ./scripts/build_app.sh from Terminal so the toolchain stays consistent."
+  rm -rf "$_check_tmp"
   exit 1
 fi
-unset _sdk_path _check_tmp _mismatch
+rm -rf "$_check_tmp"
+unset _sdk_path _check_tmp _sdk_compile_err
 
 # ── Compile ───────────────────────────────────────────────────────────────────
 BUILD_DIR="$(mktemp -d)"
@@ -94,12 +115,12 @@ xcrun clang -arch arm64 -arch x86_64 -isysroot "$MACOS_SDK" \
   -o "$BUILD_DIR/airflow-stack-panel"
 
 echo "  Compiling dialog helper (arm64)..."
-xcrun swiftc -O -target arm64-apple-macosx11.0 \
+"$SWIFTC" -O -sdk "$MACOS_SDK" -target arm64-apple-macosx11.0 \
   "$REPO_ROOT/src/airflow-dialog-helper.swift" \
   -o "$BUILD_DIR/airflow-dialog-helper-arm64"
 
 echo "  Compiling dialog helper (x86_64)..."
-xcrun swiftc -O -target x86_64-apple-macosx10.15 \
+"$SWIFTC" -O -sdk "$MACOS_SDK" -target x86_64-apple-macosx10.15 \
   "$REPO_ROOT/src/airflow-dialog-helper.swift" \
   -o "$BUILD_DIR/airflow-dialog-helper-x86_64"
 

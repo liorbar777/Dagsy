@@ -122,6 +122,35 @@ By default the `.app` is written to `~/Applications/Dagsy.app`. Override with `-
 ./scripts/build_app.sh --dest ~/Desktop/Dagsy.app
 ```
 
+### Build error: “SDK is not supported by the compiler” / “failed to build module ‘AppKit’”
+
+That means the **Swift compiler** and the **macOS SDK** on the machine came from different updates (for example Command Line Tools updated while Xcode was not, or an IDE runs a different `swiftc` than the SDK). The Swift versions only differ by a tiny build number (e.g. `swiftlang-6.2.1.4.7` vs `…4.8`), but Apple’s compiler still refuses to import `AppKit`.
+
+**Recommended:** build only with the project script (it pins one toolchain and clears a stray `SDKROOT`):
+
+```bash
+./scripts/build_app.sh
+```
+
+**If it still fails:**
+
+1. Select a single developer directory — preferably full Xcode — so Swift and the SDK match:
+
+   ```bash
+   sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+   ```
+
+   (Adjust the path if your Xcode is named `Xcode-beta.app` or similar.)
+
+2. Or reinstall Command Line Tools so Swift and the SDK upgrade together:
+
+   ```bash
+   sudo rm -rf /Library/Developer/CommandLineTools
+   xcode-select --install
+   ```
+
+3. **PyCharm / other IDEs:** do not compile `src/airflow-dialog-helper.swift` with the IDE’s Swift tool. Use the script above, or run the same `swiftc` as `xcode-select` points to (e.g. `$(xcode-select -p)/usr/bin/swiftc`).
+
 ---
 
 ## Running without the .app
